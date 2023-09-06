@@ -6,6 +6,12 @@ namespace murmur3_Unhash
 {
     internal class Program
     {
+        struct sorted_things{
+            public sorted_things(float a, int i){
+                accuracy = a; string_index = i;}
+            public float accuracy;
+            public int string_index; 
+        }
         static void Main(string[] args)
         {
 
@@ -21,9 +27,25 @@ namespace murmur3_Unhash
                 List<string> matching_strings = Murmur3.unhash(test, (uint)new_string.Length);
                 Console.WriteLine(matching_strings.Count + " matching strings found!");
                 Console.ReadLine();
-                foreach (string s in matching_strings)
-                {
-                    Console.WriteLine(s);
+
+                // now we apply our word checking logic & then sort
+                List<sorted_things> sorted = new(matching_strings.Count);
+
+                for (int i = 0; i < matching_strings.Count; i++)
+                    sorted.Add(new sorted_things(WordChecker.CheckWord(matching_strings[i]), i));
+                
+                sorted.Sort((a, b) => b.accuracy.CompareTo(a.accuracy));
+
+                int num_displayed = 0;
+                foreach(var v in sorted){
+                    if (num_displayed > 1000){
+                        Console.WriteLine("display fulling up!!! enter to continue!");
+                        Console.ReadLine();
+                        num_displayed = 0;
+                    }
+
+                    Console.WriteLine("[" + v.accuracy.ToString("0.0000") + "]:" + matching_strings[v.string_index]);
+                    num_displayed++;
                 }
 
             }
@@ -86,6 +108,7 @@ namespace murmur3_Unhash
 
             // if the length is 4 or less, then the answer lies within our cached hash table
             // if its just 4, we let that get handled down the bottom
+            // TODO: add count initializer based off of approximations
             List<string> strings = new();
             string? result;
             switch (unhashed_length){
