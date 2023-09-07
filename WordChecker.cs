@@ -15,17 +15,45 @@ namespace murmur3_Unhash
             plural = 2, // plurals do not
             none = 3,
         }
-        public static float CheckWord(string word){
+        public static float CheckWord(string word, bool is_start_of_word, bool can_end_with__andq){
             char last_char = '_';
             int repeat_count = 0;
+            if (can_end_with__andq) repeat_count = -1; // to allow the word to end with a space
             int correct_chars = 0;
             int number_chains = 0;
+
+            int vowel_repeat_count = 0;
+            bool last_char_was_vowel = false;
             // replace ending numbers, y's & s's with underscores
             //StringBuilder new_string = new StringBuilder(word);
             last_state last_char_state = last_state.space;
             for (int i = word.Length - 1; i >= 0; i--){
-                bool is_starting_char = (i == 0);
+                bool is_starting_char = ((i == 0) && is_start_of_word);
+                bool is_second_char = ((i == 1) && is_start_of_word);
                 char current_char = word[i];
+                // make sure we dont get 3 vowels in a row (by abusing vowel compatibility chains)
+
+                switch (current_char){
+                    case 'a':
+                    case 'e':
+                    case 'i':
+                    case 'o':
+                    case 'u':
+                        if (last_char_was_vowel){
+                            vowel_repeat_count++;
+                            // if 3 vowels in a row
+                            if (vowel_repeat_count >= 2)
+                                correct_chars -= 1; // just disqaulify this char? // we should give it a higher penalty
+                        }
+                        last_char_was_vowel = true;
+                        break;
+                    default:
+                        vowel_repeat_count = 0;
+                        last_char_was_vowel = false;
+                        break;
+
+                }
+
                 switch (current_char){
                     case '0':
                     case '1':
@@ -57,7 +85,7 @@ namespace murmur3_Unhash
                         } else last_char_state = last_state.none;
                         break;
                     case '_': // space character
-                        if (is_starting_char) // spaces also cant be starting numbers
+                        if (is_starting_char || is_second_char) // spaces cant be in char slot 0 or 1 of a string
                             current_char = '\0';
                         last_char_state = last_state.space;
                         break;
@@ -66,12 +94,13 @@ namespace murmur3_Unhash
                         break;
                 }
                 // now process this char
-                if (EvaluateLetter(current_char, last_char, is_starting_char))
+                if (EvaluateLetter(current_char, last_char, is_starting_char, can_end_with__andq))
                     correct_chars++;
                 if (last_char == current_char && current_char != '\0' && last_char_state != last_state.number && last_char_state != last_state.plural)
                     repeat_count++;
                 else repeat_count = 0;
-                if (repeat_count == 2 || (current_char == '_' && repeat_count == 1))
+                // note that this does not function correctly, it will give an insane penalty to strings with 4 or more matching chars in a row (which tbh is just funny & gives accurate results anyway)
+                if (repeat_count >= 2 || (current_char == '_' && repeat_count == 1))
                     correct_chars -= 3; // 3 chars in a row means they're all wrong // might as well disqualify the string
 
 
@@ -79,10 +108,10 @@ namespace murmur3_Unhash
             }
             return (float)correct_chars / word.Length;
         }
-        private static bool EvaluateLetter(char letter, char next, bool is_first_char){
+        private static bool EvaluateLetter(char letter, char next, bool is_first_char, bool can_end_with_q){
             if (letter == '\0')
                 return false;
-            if (next == '_')
+            if (next == '_' && (letter != 'q' || can_end_with_q))
                 return true;
 
             // evaluate for if the current letter is a vowel
@@ -121,7 +150,7 @@ namespace murmur3_Unhash
                     } return true;
                 // q has to be handled a little differently, as it is the only letter with a vowel restriction (of 'u')
                 case 'q':
-                    return next == 'u'; // this works becuase q cannot be at the end of a word
+                    return (next == 'u' || can_end_with_q); // this works becuase q cannot be at the end of a word
                 // we dont allow numbers, unless they are before a space (at the end of a word)
                 case '0':
                 case '1':

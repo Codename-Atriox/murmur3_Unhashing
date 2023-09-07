@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualBasic;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace murmur3_Unhash
@@ -32,7 +33,7 @@ namespace murmur3_Unhash
                 List<sorted_things> sorted = new(matching_strings.Count);
 
                 for (int i = 0; i < matching_strings.Count; i++)
-                    sorted.Add(new sorted_things(WordChecker.CheckWord(matching_strings[i]), i));
+                    sorted.Add(new sorted_things(WordChecker.CheckWord(matching_strings[i], true, false), i));
                 
                 sorted.Sort((a, b) => b.accuracy.CompareTo(a.accuracy));
 
@@ -152,8 +153,15 @@ namespace murmur3_Unhash
                 return;}
             // if more than 4, continue the recurse chain
             hash = unpack4chars(hash);
+            // we have now optimized this, so we only run the good combinations, opposed to all of them
+            if (hierarchy.Length > 0){
+                // get the last char in our current string
+                char compat_test = hierarchy[0];
+                foreach (var v in char_compats[compat_test])
+                    recurs_unhash(hash ^ v, length_remaining - 4, s_list, chars4[v] + hierarchy);
+            }
             // since we dont know what this is supposed to be, we'll have to test every single combination
-            foreach (var v in chars4) recurs_unhash(hash ^ v.Key, length_remaining-4, s_list, v.Value + hierarchy);
+            else foreach (var v in chars4) recurs_unhash(hash ^ v.Key, length_remaining-4, s_list, v.Value + hierarchy);
         }
         private static uint unpack4chars(uint hash){
             // if the value is less than constant3, then it must have originally overflowed
@@ -170,22 +178,53 @@ namespace murmur3_Unhash
         const string wide_charset = "abcdefghijklmonpqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_. ";
         const string strict_charset = "abcdefghijklmonpqrstuvwxyz0123456789_";
         static bool initialized = false;
-        static Dictionary<uint, string> chars4 = new();
-        static Dictionary<uint, string> chars3 = new();
-        static Dictionary<uint, string> chars2 = new();
-        static Dictionary<uint, string> chars1 = new();
+        static Dictionary<uint, string> chars4 = new(162203); // 1874161 // 162203 // 190642 // 229381
+        static Dictionary<uint, string> chars3 = new(  9535); //   50653 //   9535 //  11575 //  11575
+        static Dictionary<uint, string> chars2 = new(   540); //    1369 //    540 //    693 //    693
+        static Dictionary<uint, string> chars1 = new(    37); //      37 //     37 //     37 //     35
+
+        static Dictionary<uint, List<uint>> char_compats = new(37); // compatibility backwards, so `WordChecker.CheckWord(chars4[char_compats[i]] + strict_charset[i]);`
         public static void cache_hashes(){
             // iterate through all chars & pack them
-            foreach (char c1 in strict_charset){
-                chars1.Add(pack32(c1), c1.ToString());
+            // updated version
+            foreach (char c1 in strict_charset){ 
+                if (c1 != 'q' && c1 != '_') // 1 char means end of string, cannot end with space or q
+                    chars1.Add(pack32(c1), c1.ToString());
                 foreach (char c2 in strict_charset){
-                    chars2.Add(pack32((uint)(c1 | c2 << 8)), c1.ToString() + c2.ToString());
+                    string s2 = "" + c1 + c2;
+                    if (WordChecker.CheckWord(s2, false, false) == 1.0f) // 2 chars means end of string, cannot end with space or q
+                        chars2.Add(pack32((uint)(c1 | c2 << 8)), s2);
                     foreach (char c3 in strict_charset){
-                        chars3.Add(pack32((uint)(c1 | c2 << 8 | c3 << 16)), c1.ToString() + c2.ToString() + c3.ToString());
+                        string s3 = "" + c1 + c2 + c3;
+                        if (WordChecker.CheckWord(s3, false, false) == 1.0f) // 3 chars means end of string, cannot end with space or q
+                            chars3.Add(pack32((uint)(c1 | c2 << 8 | c3 << 16)), s3);
                         foreach (char c4 in strict_charset){
-                            chars4.Add(pack32((uint)(c1 | c2 << 8 | c3 << 16 | c4 << 24)), c1.ToString() + c2.ToString() + c3.ToString() + c4.ToString());
+                            string s4 = "" + c1 + c2 + c3 + c4;
+                            if (WordChecker.CheckWord(s4, false, true) == 1.0f) // 4 chars means maybe not end of string, can end with space or q
+                                chars4.Add(pack32((uint)(c1 | c2 << 8 | c3 << 16 | c4 << 24)), s4);
             }}}}
-            initialized = true; // 1094ms, 1187ms
+            // then build a compatibility table
+            foreach (char c in strict_charset){
+                List<uint> compatible_blocks = new();
+                foreach (var v in chars4){
+                    if (WordChecker.CheckWord(v.Value + c, false, true) == 1.0f)
+                        // then this is compatible, pass it
+                        compatible_blocks.Add(v.Key);
+                }
+                char_compats.Add(c, compatible_blocks);
+            }
+
+            //foreach (char c1 in strict_charset){
+            //    chars1.Add(pack32(c1), c1.ToString());
+            //    foreach (char c2 in strict_charset){
+            //        chars2.Add(pack32((uint)(c1 | c2 << 8)), c1.ToString() + c2.ToString());
+            //        foreach (char c3 in strict_charset){
+            //            chars3.Add(pack32((uint)(c1 | c2 << 8 | c3 << 16)), c1.ToString() + c2.ToString() + c3.ToString());
+            //            foreach (char c4 in strict_charset){
+            //                chars4.Add(pack32((uint)(c1 | c2 << 8 | c3 << 16 | c4 << 24)), c1.ToString() + c2.ToString() + c3.ToString() + c4.ToString());
+            //}}}}
+            initialized = true; // 1094ms, 1187ms // 530ms
+                                                // ???? you think it'd be slowed now that we're checking every the validness of ever string
         }
 
 
