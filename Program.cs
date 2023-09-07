@@ -203,6 +203,8 @@ namespace murmur3_Unhash
                             if (WordChecker.CheckWord(s4, false, true) == 1.0f) // 4 chars means maybe not end of string, can end with space or q
                                 chars4.Add(pack32((uint)(c1 | c2 << 8 | c3 << 16 | c4 << 24)), s4);
             }}}}
+            // 1094ms, 1187ms // 530ms
+                              // ???? you think it'd be slowed now that we're checking every the validness of ever string
             // then build a compatibility table
             foreach (char c in strict_charset){
                 List<uint> compatible_blocks = new();
@@ -223,8 +225,8 @@ namespace murmur3_Unhash
             //            foreach (char c4 in strict_charset){
             //                chars4.Add(pack32((uint)(c1 | c2 << 8 | c3 << 16 | c4 << 24)), c1.ToString() + c2.ToString() + c3.ToString() + c4.ToString());
             //}}}}
-            initialized = true; // 1094ms, 1187ms // 530ms
-                                                // ???? you think it'd be slowed now that we're checking every the validness of ever string
+            initialized = true; 
+                                                
         }
 
 
