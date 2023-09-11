@@ -1,7 +1,10 @@
 ﻿using Microsoft.VisualBasic;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using static System.Net.Mime.MediaTypeNames;
+using System.Windows;
 
 namespace murmur3_Unhash
 {
@@ -13,9 +16,55 @@ namespace murmur3_Unhash
             public float accuracy;
             public int string_index; 
         }
+        private static uint reverse_uint(uint input){
+            uint output = ((input & 0xff) << 24)
+                        | ((input & 0xff00) << 8)
+                        | ((input & 0xff0000) >> 8)
+                        | ((input & 0xff000000) >> 24);
+            return output;
+        }
         static void Main(string[] args)
         {
+            while (true)
+            {
+                Console.WriteLine("enter stringID... (as hexadecimal)");
+                string? new_string = Console.ReadLine();
+                if (new_string == null) continue;
+                uint stringID = reverse_uint(Convert.ToUInt32(new_string, 16));
 
+                //Console.WriteLine("enter maximum length... (DO NOT GO OVER 10)");
+                //new_string = Console.ReadLine();
+                //if (new_string == null) continue;
+                //uint max_length = Convert.ToUInt32(new_string, 10);
+                //if (max_length > 10){
+                //    Console.WriteLine("length over 10, aborting (you will have to manually edit the code if you desire to wait eternity to get results)\n");
+                //    continue;
+                //}
+                uint max_length = 10;
+
+                List<string> resulting_strings = new();
+                for (uint i = 1; i <= max_length; i++)
+                {
+                    List<string> output = Murmur3.unhash(stringID, i);
+                    output.Sort();
+                    resulting_strings.AddRange(output);
+                }
+
+                List<string> filtered_strings = new();
+                foreach (var v in resulting_strings)
+                    if (WordChecker.CheckWord(v, true, false) == 1.0f)
+                        filtered_strings.Add(v);
+                //filtered_strings.Sort();
+
+                Console.WriteLine(filtered_strings.Count + " strings found" + (resulting_strings.Count - filtered_strings.Count) + " filtered out. results dumped to text file!\n");
+
+                //StringBuilder sb = new();
+                //foreach (var v in filtered_strings)
+                //    sb.Append(v);
+
+                File.WriteAllLines("C:\\Users\\Joe bingle\\Downloads\\testIDs.txt", filtered_strings);
+            }
+            // debug testing
             while (true)
             {
                 Console.WriteLine("enter string to test...");
